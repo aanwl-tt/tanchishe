@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>贪吃蛇 - 吃球大作战</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #1a1a2e;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      overflow-x: hidden;
+      touch-action: manipulation;
+    }
+    .game-container { text-align: center; padding: 10px 0; max-width: 100vw; }
+
+    .panel { display: flex; flex-direction: column; align-items: center; gap: 14px; max-width: 520px; margin: 0 auto; }
+    .panel h2 { color: #e94560; font-size: clamp(22px, 5vw, 30px); letter-spacing: 2px; }
+    .panel h3 { color: #ccc; font-size: 17px; margin-bottom: 2px; }
+    .panel label { color: #888; font-size: 13px; }
+
+    #level-grid { display: grid; grid-template-columns: repeat(5, 64px); gap: 8px; justify-content: center; }
+    .lv-btn {
+      width: 64px; height: 64px; border: 2px solid #0f3460; border-radius: 12px;
+      background: #16213e; color: #ccc; font-size: 19px; font-weight: bold; cursor: pointer;
+      transition: all 0.15s; position: relative;
+    }
+    .lv-btn:hover { border-color: #e94560; color: #fff; }
+    .lv-btn.locked { opacity: 0.3; cursor: not-allowed; color: #555; }
+    .lv-btn.locked:hover { border-color: #0f3460; color: #555; }
+    .lv-btn.locked::after { content: '🔒'; position: absolute; font-size: 14px; bottom: 2px; right: 4px; }
+    .lv-btn.done::before { content: '✓'; position: absolute; top: 1px; right: 5px; font-size: 13px; color: #4fc3f7; }
+    .menu-btns, .row-btns { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+    .btn-primary, .btn-secondary {
+      padding: 8px 20px; border-radius: 10px; font-size: 14px;
+      border: 2px solid #0f3460; background: #16213e; color: #ccc;
+      cursor: pointer; transition: all 0.15s; font-weight: bold;
+    }
+    .btn-primary:hover, .btn-secondary:hover { border-color: #e94560; color: #e94560; }
+
+    .skin-tabs { display: flex; border-radius: 10px; overflow: hidden; }
+    .skin-tabs button {
+      padding: 8px 18px; border: 2px solid #0f3460; background: #16213e;
+      color: #888; cursor: pointer; font-size: 14px; font-weight: bold;
+    }
+    .skin-tabs button:first-child { border-radius: 10px 0 0 10px; }
+    .skin-tabs button:last-child { border-radius: 0 10px 10px 0; }
+    .skin-tabs button.active { background: #0f3460; color: #fff; border-color: #e94560; }
+    .skin-section { width: 100%; }
+    .snake-strip { display: flex; gap: 2px; justify-content: center; flex-wrap: wrap; margin: 4px 0; }
+    .snake-cell {
+      width: 24px; height: 24px; border-radius: 4px;
+      border: 1px solid #333; cursor: pointer; transition: transform 0.1s;
+    }
+    .snake-cell:hover { transform: scale(1.2); border-color: #fff; }
+    .color-palette { display: flex; gap: 5px; justify-content: center; flex-wrap: wrap; margin: 4px 0; }
+    .color-swatch {
+      width: 28px; height: 28px; border-radius: 50%;
+      border: 2px solid transparent; cursor: pointer; transition: all 0.15s;
+    }
+    .color-swatch:hover { transform: scale(1.15); }
+    .color-swatch.selected { border-color: #fff; box-shadow: 0 0 8px rgba(255,255,255,0.5); }
+    .color-row { display: flex; align-items: center; gap: 8px; justify-content: center; margin: 3px 0; }
+    .color-row input[type=color] { width: 32px; height: 28px; border: 1px solid #555; border-radius: 6px; cursor: pointer; background: transparent; }
+    .color-row input[type=range] { width: 100px; }
+    .upload-row { display: flex; align-items: center; gap: 8px; justify-content: center; flex-wrap: wrap; }
+    .upload-row input[type=file] { color: #888; font-size: 12px; max-width: 160px; }
+    .tag { font-size: 11px; padding: 2px 8px; border-radius: 10px; background: #0f3460; color: #4fc3f7; }
+
+    .preview-box {
+      display: flex; align-items: center; gap: 8px; justify-content: center;
+      margin: 6px 0; padding: 10px; border-radius: 8px; border: 1px solid #1a1a3e;
+    }
+    .preview-snake { display: flex; gap: 1px; align-items: center; }
+    .preview-snake div { width: 14px; height: 14px; border-radius: 3px; }
+    .preview-ball { width: 32px; height: 32px; border-radius: 50%; background-size: cover; }
+    .skin-img-preview { width: 60px; height: 40px; border-radius: 4px; border: 1px solid #555; background-size: cover; background-position: center; }
+
+    .header {
+      display: flex; justify-content: space-between; align-items: center;
+      width: 100%; max-width: 720px; margin: 0 auto 6px; padding: 0 8px;
+    }
+    .info-left { text-align: left; } .info-right { text-align: right; display: flex; gap: 6px; align-items: center; }
+    .title { color: #e94560; font-size: clamp(18px, 4.5vw, 26px); font-weight: bold; letter-spacing: 2px; }
+    .level-badge { color: #f5c518; font-size: clamp(12px, 3vw, 15px); }
+    .stat-item {
+      background: #16213e; padding: 5px 16px; border-radius: 8px;
+      font-size: clamp(14px, 3.5vw, 18px); font-weight: bold; border: 2px solid #0f3460; color: #eee;
+    }
+    .stat-item span { color: #f5c518; font-size: clamp(16px, 4vw, 22px); }
+    .btn-back { background: transparent; border: 1px solid #555; color: #888; padding: 5px 14px; border-radius: 8px; font-size: 14px; cursor: pointer; }
+    .btn-back:hover { border-color: #e94560; color: #e94560; }
+
+    canvas { border: 2px solid #0f3460; border-radius: 4px; max-width: 100%; height: auto; touch-action: none; }
+    #result-btns { display: none; gap: 12px; justify-content: center; margin-top: 10px; }
+    #result-btns button {
+      padding: 10px 28px; border-radius: 10px; font-size: 16px; font-weight: bold;
+      cursor: pointer; border: 2px solid #0f3460; transition: all 0.15s;
+    }
+    #btn-retry { background: #16213e; color: #f5c518; border-color: #f5c518; }
+    #btn-retry:hover { background: #f5c518; color: #1a1a2e; }
+    #btn-next { background: #16213e; color: #4fc3f7; border-color: #4fc3f7; }
+    #btn-next:hover { background: #4fc3f7; color: #1a1a2e; }
+    #btn-menu { background: #16213e; color: #ccc; }
+    #btn-menu:hover { border-color: #e94560; color: #e94560; }
+
+    .hint { color: #555; margin-top: 6px; font-size: 12px; letter-spacing: 1px; }
+    .dpad {
+      display: grid; grid-template-columns: 60px 60px 60px; grid-template-rows: 60px 60px 60px;
+      gap: 3px; justify-content: center; margin-top: 8px;
+    }
+    .dpad button {
+      width: 60px; height: 60px; border: 2px solid #0f3460; border-radius: 12px;
+      background: #16213e; color: #ccc; font-size: 26px; cursor: pointer;
+      user-select: none; -webkit-user-select: none; touch-action: manipulation;
+    }
+    .dpad button:active { background: #e94560; border-color: #e94560; color: #fff; }
+    .dpad .empty { visibility: hidden; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <!-- Menu Panel -->
+    <div id="menu-panel" class="panel">
+      <h2>🐍 选择关卡</h2>
+      <div id="level-grid"></div>
+      <div class="menu-btns">
+        <button class="btn-primary" id="btn-skin-open">🎨 皮肤设置</button>
+        <button class="btn-primary" id="btn-export">📥 导出存档</button>
+        <button class="btn-primary" id="btn-import">📤 导入存档</button>
+      </div>
+    </div>
+
+    <!-- Skin Panel -->
+    <div id="skin-panel" class="panel hidden">
+      <h2>🎨 皮肤设置</h2>
+      <div class="skin-tabs">
+        <button id="tab-snake" class="active">蛇身</button>
+        <button id="tab-ball">球</button>
+        <button id="tab-bg">背景</button>
+      </div>
+
+      <!-- Snake tab -->
+      <div id="section-snake" class="skin-section">
+        <h3>颜色绘制</h3>
+        <div class="color-row">
+          <label>图案长度</label>
+          <input type="range" id="snake-length" min="1" max="40" value="20" style="width:120px;">
+          <span id="snake-length-val" style="color:#ccc;font-size:14px;">20</span>
+        </div>
+        <div class="snake-strip" id="snake-strip"></div>
+        <div class="color-palette" id="snake-palette"></div>
+        <div class="color-row">
+          <label>自定义</label>
+          <input type="color" id="snake-custom-color" value="#44cc44">
+          <button class="btn-secondary" id="btn-clear-snake">清空</button>
+        </div>
+        <div class="preview-box" id="preview-snake-box">
+          <span style="color:#888;font-size:13px;">预览:</span>
+          <div class="preview-snake" id="preview-snake"></div>
+        </div>
+      </div>
+
+      <!-- Ball tab -->
+      <div id="section-ball" class="skin-section hidden">
+        <h3>选择颜色</h3>
+        <div class="color-palette" id="ball-palette"></div>
+        <div class="color-row">
+          <label>自定义</label>
+          <input type="color" id="ball-custom-color" value="#e94560">
+        </div>
+        <div class="preview-box" id="preview-ball-box">
+          <span style="color:#888;font-size:13px;">预览:</span>
+          <div class="preview-ball" id="preview-ball"></div>
+        </div>
+      </div>
+
+      <!-- Background tab -->
+      <div id="section-bg" class="skin-section hidden">
+        <h3>选择颜色</h3>
+        <div class="color-palette" id="bg-palette"></div>
+        <div class="color-row">
+          <label>自定义</label>
+          <input type="color" id="bg-custom-color" value="#1a1a2e">
+        </div>
+        <div class="preview-box" id="preview-bg-box" style="min-height:50px;border:1px solid #333;">
+          <span style="color:#888;font-size:13px;">背景预览</span>
+        </div>
+      </div>
+
+      <div class="menu-btns">
+        <button class="btn-primary" id="btn-skin-save">💾 保存</button>
+        <button class="btn-secondary" id="btn-skin-reset">🔄 恢复默认</button>
+        <button class="btn-secondary" id="btn-skin-back">返回</button>
+      </div>
+    </div>
+
+    <!-- Game Screen -->
+    <div id="game-screen" style="display:none;">
+      <div class="header">
+        <div class="info-left">
+          <div class="title">🐍 贪吃蛇</div>
+          <div class="level-badge">第 <span id="level-num">1</span> 关</div>
+        </div>
+        <div class="info-right">
+          <div class="stat-item">得分 <span id="score">0</span></div>
+          <div class="stat-item">目标 <span id="target-score">5</span></div>
+          <button class="btn-back" id="btn-back">返回</button>
+        </div>
+      </div>
+      <canvas id="canvas" tabindex="0"></canvas>
+      <div class="hint" id="hint">方向键 / WASD 移动</div>
+      <div class="dpad" id="dpad">
+        <button class="empty"></button><button id="btn-up">↑</button><button class="empty"></button>
+        <button id="btn-left">←</button><button class="empty"></button><button id="btn-right">→</button>
+        <button class="empty"></button><button id="btn-down">↓</button><button class="empty"></button>
+      </div>
+      <div id="result-btns">
+        <button id="btn-retry">重试本关</button>
+        <button id="btn-next">下一关</button>
+        <button id="btn-menu">返回菜单</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+// === DOM ===
+const canvas = document.getElementById('canvas'), ctx = canvas.getContext('2d');
+const scoreEl = document.getElementById('score'), targetEl = document.getElementById('target-score');
+const levelNumEl = document.getElementById('level-num'), hintEl = document.getElementById('hint');
+const dpad = document.getElementById('dpad'), menuPanel = document.getElementById('menu-panel');
+const skinPanel = document.getElementById('skin-panel'), gameScreen = document.getElementById('game-screen');
+const resultBtns = document.getElementById('result-btns'), levelGrid = document.getElementById('level-grid');
+
+// === Constants ===
+const GRID = 20;
+const DIR = { UP: { x: 0, y: -1 }, DOWN: { x: 0, y: 1 }, LEFT: { x: -1, y: 0 }, RIGHT: { x: 1, y: 0 } };
+const DIRS_ARR = [DIR.UP, DIR.RIGHT, DIR.DOWN, DIR.LEFT];
+const BASE_SPEED = 150, MIN_SPEED = 60, SPEED_STEP = 5, TOTAL_LEVELS = 20;
+
+const isMobile = 'ontouchstart' in window;
+hintEl.textContent = isMobile ? '滑动画面或点击下方按钮控制方向' : '方向键 / WASD 移动';
+dpad.style.display = isMobile ? 'grid' : 'none';
+
+// === Skin defaults ===
+const DEFAULT_SNAKE = ['#1e7a1e','#228b22','#2d9d2d','#38b038','#44cc44','#50d050','#5cd45c','#68d868','#74dc74','#80e080','#2d9d2d','#38b038','#44cc44','#50d050','#5cd45c','#68d868','#44cc44','#38b038','#2d9d2d','#228b22'];
+const DEFAULT_BALL = '#e94560', DEFAULT_BG = '#1a1a2e';
+const PALETTE = ['#e94560','#ff6b6b','#f5c518','#ff9800','#ff5722','#4caf50','#44cc44','#2ecc71','#00bcd4','#4fc3f7','#2196f3','#9c27b0','#e91e63','#795548','#607d8b','#ffffff','#aaaaaa','#555555','#000000'];
+
+// Skin state
+let snakePattern = [...DEFAULT_SNAKE], patternLength = 20;
+let ballColor = DEFAULT_BALL, bgColor = DEFAULT_BG;
+let selectedSnakeColor = '#44cc44';
+let snakeStripCells = [], snakeSwatches = [];
+
+// === Skin panel ===
+function makeSwatch(color, parentId, onClick) {
+  const s = document.createElement('div'); s.className = 'color-swatch'; s.style.background = color;
+  s.addEventListener('click', () => onClick(color, s));
+  document.getElementById(parentId).appendChild(s); return s;
+}
+
+function buildSnakePalette() {
+  const c = document.getElementById('snake-palette'); c.innerHTML = ''; snakeSwatches = [];
+  PALETTE.forEach(clr => {
+    const sw = makeSwatch(clr, 'snake-palette', (color, el) => {
+      selectedSnakeColor = color;
+      snakeSwatches.forEach(s => s.classList.remove('selected'));
+      el.classList.add('selected');
+    });
+    snakeSwatches.push(sw);
+  });
+  if (snakeSwatches.length) snakeSwatches[0].classList.add('selected');
+  selectedSnakeColor = PALETTE[0];
+}
+
+function buildSnakeStrip() {
+  const strip = document.getElementById('snake-strip'); strip.innerHTML = ''; snakeStripCells = [];
+  while (snakePattern.length < patternLength) snakePattern.push('#44cc44');
+  snakePattern.length = patternLength;
+  for (let i = 0; i < patternLength; i++) {
+    const cell = document.createElement('div'); cell.className = 'snake-cell';
+    cell.style.background = snakePattern[i];
+    ((idx) => { cell.addEventListener('click', () => {
+      snakePattern[idx] = selectedSnakeColor; cell.style.background = selectedSnakeColor; updateSnakePreview();
+    }); })(i);
+    strip.appendChild(cell); snakeStripCells.push(cell);
+  }
+  document.getElementById('snake-length').value = patternLength;
+  document.getElementById('snake-length-val').textContent = patternLength;
+}
+
+function updateSnakePreview() {
+  const p = document.getElementById('preview-snake'); p.innerHTML = '';
+  for (let i = 0; i < 12; i++) {
+    const seg = document.createElement('div');
+    const sz = (i === 0 ? 16 : 12) + 'px';
+    seg.style.width = sz; seg.style.height = sz;
+    seg.style.background = snakePattern[i % patternLength];
+    p.appendChild(seg);
+  }
+  document.getElementById('preview-snake-box').style.background = bgColor;
+}
+
+function buildBallPalette() {
+  const c = document.getElementById('ball-palette'); c.innerHTML = '';
+  PALETTE.forEach(clr => makeSwatch(clr, 'ball-palette', (color) => {
+    ballColor = color; updateBallPreview();
+  }));
+}
+
+function updateBallPreview() {
+  document.getElementById('preview-ball').style.background = ballColor;
+}
+
+function buildBgPalette() {
+  const c = document.getElementById('bg-palette'); c.innerHTML = '';
+  PALETTE.forEach(clr => makeSwatch(clr, 'bg-palette', (color) => {
+    bgColor = color; updateBgPreview();
+  }));
+}
+
+function updateBgPreview() {
+  document.getElementById('preview-bg-box').style.background = bgColor;
+  applyBackground();
+}
+
+function applyBackground() {
+  document.body.style.background = bgColor;
+}
+
+function initSkinPanel() {
+  buildSnakePalette(); buildSnakeStrip(); updateSnakePreview();
+  buildBallPalette(); updateBallPreview();
+  buildBgPalette(); updateBgPreview();
+}
+
+function switchSkinTab(tab) {
+  document.querySelectorAll('.skin-tabs button').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  ['snake','ball','bg'].forEach(t => document.getElementById('section-' + t).classList.toggle('hidden', t !== tab));
+}
+
+function refreshSkinPanel() {
+  buildSnakeStrip(); buildSnakePalette(); updateSnakePreview();
+  updateBallPreview(); updateBgPreview();
+}
+
+function openSkinPanel() {
+  loadSkin(); refreshSkinPanel();
+  menuPanel.classList.add('hidden'); skinPanel.classList.remove('hidden');
+}
+function closeSkinPanel() {
+  skinPanel.classList.add('hidden'); menuPanel.classList.remove('hidden'); buildMenu();
+}
+
+function saveSkin() {
+  localStorage.setItem('snakePattern', JSON.stringify(snakePattern));
+  localStorage.setItem('patternLength', patternLength);
+  localStorage.setItem('ballColor', ballColor);
+  localStorage.setItem('bgColor', bgColor);
+  applyBackground();
+}
+
+function loadSkin() {
+  try {
+    const sp = JSON.parse(localStorage.getItem('snakePattern'));
+    snakePattern = (sp && sp.length > 0) ? sp : [...DEFAULT_SNAKE];
+    patternLength = parseInt(localStorage.getItem('patternLength')) || snakePattern.length || 20;
+    ballColor = localStorage.getItem('ballColor') || DEFAULT_BALL;
+    bgColor = localStorage.getItem('bgColor') || DEFAULT_BG;
+  } catch (e) {
+    snakePattern = [...DEFAULT_SNAKE]; patternLength = 20;
+    ballColor = DEFAULT_BALL; bgColor = DEFAULT_BG;
+  }
+  applyBackground();
+}
+
+function exportSave() {
+  const data = {
+    unlockedLevel,
+    completedLevels: [...completedLevels],
+    snakePattern,
+    patternLength,
+    ballColor,
+    bgColor,
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = '贪吃蛇存档.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importSave() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  input.addEventListener('change', () => {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        if (typeof data.unlockedLevel !== 'number' || !Array.isArray(data.completedLevels)) {
+          throw new Error('格式错误');
+        }
+        unlockedLevel = data.unlockedLevel;
+        completedLevels = new Set(data.completedLevels);
+        snakePattern = data.snakePattern || [...DEFAULT_SNAKE];
+        patternLength = data.patternLength || 20;
+        ballColor = data.ballColor || DEFAULT_BALL;
+        bgColor = data.bgColor || DEFAULT_BG;
+        saveSkin();
+        buildMenu();
+        applyBackground();
+        alert('存档导入成功！');
+      } catch (e) {
+        alert('文件格式无效，请选择正确的存档文件。');
+      }
+    };
+    reader.readAsText(file);
+  });
+  input.click();
+}
+
+function resetSkin() {
+  snakePattern = [...DEFAULT_SNAKE]; patternLength = 20;
+  ballColor = DEFAULT_BALL; bgColor = DEFAULT_BG;
+  applyBackground();
+  refreshSkinPanel();
+  document.getElementById('snake-length').value = 20;
+  document.getElementById('snake-length-val').textContent = '20';
+}
+
+// === State ===
+let COLS, ROWS, W, H, currentLevel, levelScore, levelTarget;
+let snake, food, obstacles, direction, nextDirection;
+let gameOver, levelDone, waiting, speed, timer;
+let directionChanges, foodHistory;
+let unlockedLevel = 1, completedLevels = new Set();
+
+function levelConfig(lv) {
+  return {
+    cols: Math.min(18 + lv * 2, 40), rows: Math.min(13 + lv * 2, 32),
+    obstacleCount: (lv - 1) * 4, target: 4 + lv,
+    spd: Math.max(MIN_SPEED, BASE_SPEED - (lv - 1) * 10),
+  };
+}
+
+function resizeCanvas() { W = COLS * GRID; H = ROWS * GRID; canvas.width = W; canvas.height = H; }
+
+function buildMenu() {
+  levelGrid.innerHTML = '';
+  for (let lv = 1; lv <= TOTAL_LEVELS; lv++) {
+    const btn = document.createElement('button'); btn.className = 'lv-btn'; btn.textContent = lv;
+    if (lv > unlockedLevel) btn.classList.add('locked');
+    else if (completedLevels.has(lv)) btn.classList.add('done');
+    btn.addEventListener('click', () => { if (lv <= unlockedLevel) startLevel(lv); });
+    levelGrid.appendChild(btn);
+  }
+}
+
+function showMenu() {
+  clearInterval(timer);
+  menuPanel.classList.remove('hidden'); skinPanel.classList.add('hidden');
+  gameScreen.style.display = 'none'; resultBtns.style.display = 'none';
+  buildMenu();
+}
+
+// === Game ===
+function startLevel(lv) {
+  currentLevel = lv; const cfg = levelConfig(lv);
+  COLS = cfg.cols; ROWS = cfg.rows; levelTarget = cfg.target; speed = cfg.spd;
+  levelScore = 0; directionChanges = 0; foodHistory = [];
+  gameOver = false; levelDone = false; waiting = true; obstacles = [];
+  resizeCanvas();
+  levelNumEl.textContent = lv; targetEl.textContent = levelTarget; scoreEl.textContent = '0';
+
+  const cx = Math.floor(COLS/2), cy = Math.floor(ROWS/2);
+  const avoidSet = new Set();
+  for (let dx = -2; dx <= 2; dx++) for (let dy = -2; dy <= 2; dy++) avoidSet.add(`${cx+dx},${cy+dy}`);
+  for (let i = 0; i < cfg.obstacleCount; i++) {
+    for (let a = 0; a < 200; a++) {
+      const ox = Math.floor(Math.random()*COLS), oy = Math.floor(Math.random()*ROWS), key = `${ox},${oy}`;
+      if (!avoidSet.has(key) && !obstacles.some(o => o.x===ox && o.y===oy)) {
+        obstacles.push({x:ox, y:oy}); avoidSet.add(key);
+        avoidSet.add(`${ox-1},${oy}`); avoidSet.add(`${ox+1},${oy}`);
+        avoidSet.add(`${ox},${oy-1}`); avoidSet.add(`${ox},${oy+1}`);
+        break;
+      }
+    }
+  }
+  snake = [{x:cx,y:cy},{x:cx-1,y:cy},{x:cx-2,y:cy}];
+  direction = DIR.RIGHT; nextDirection = DIR.RIGHT;
+  spawnFood(); foodHistory.push({x:food.x,y:food.y});
+  menuPanel.classList.add('hidden'); skinPanel.classList.add('hidden');
+  gameScreen.style.display = ''; resultBtns.style.display = 'none';
+  draw();
+}
+
+function startGame() { if (!waiting) return; waiting = false; canvas.focus(); startLoop(); draw(); }
+function spawnFood() {
+  const occSet = new Set(snake.map(s => `${s.x},${s.y}`));
+  obstacles.forEach(o => occSet.add(`${o.x},${o.y}`));
+  const free = [];
+  for (let x=0; x<COLS; x++) for (let y=0; y<ROWS; y++) if (!occSet.has(`${x},${y}`)) free.push({x,y});
+  if (free.length===0) { finishLevel(); return; }
+  food = free[Math.floor(Math.random()*free.length)];
+}
+function startLoop() { clearInterval(timer); timer = setInterval(update, speed); }
+function changeDirection(newDir) {
+  if (gameOver || levelDone || waiting) return;
+  if (newDir.x !== -direction.x || newDir.y !== -direction.y) {
+    if (newDir.x !== direction.x || newDir.y !== direction.y) directionChanges++;
+    nextDirection = newDir;
+  }
+}
+
+function update() {
+  if (gameOver || levelDone || waiting) return;
+  direction = nextDirection;
+  const head = snake[0], newHead = { x: head.x+direction.x, y: head.y+direction.y };
+  if (newHead.x<0||newHead.x>=COLS||newHead.y<0||newHead.y>=ROWS) return endGame();
+  if (snake.some(s => s.x===newHead.x && s.y===newHead.y)) return endGame();
+  if (obstacles.some(o => o.x===newHead.x && o.y===newHead.y)) return endGame();
+  snake.unshift(newHead);
+  if (newHead.x===food.x && newHead.y===food.y) {
+    levelScore++; scoreEl.textContent = levelScore;
+    spawnFood(); foodHistory.push({x:food.x,y:food.y});
+    if (levelScore%5===0 && speed>MIN_SPEED) { speed = Math.max(MIN_SPEED,speed-SPEED_STEP); startLoop(); }
+    if (levelScore>=levelTarget) { finishLevel(); return; }
+  } else { snake.pop(); }
+  draw();
+}
+
+function finishLevel() {
+  levelDone=true; gameOver=false; clearInterval(timer);
+  completedLevels.add(currentLevel);
+  if (currentLevel>=unlockedLevel) unlockedLevel=currentLevel+1;
+  draw();
+  resultBtns.style.display='flex';
+  document.getElementById('btn-retry').style.display='none';
+  document.getElementById('btn-next').style.display='';
+}
+
+function endGame() {
+  gameOver=true; levelDone=false; clearInterval(timer); draw();
+  resultBtns.style.display='flex';
+  document.getElementById('btn-retry').style.display='';
+  document.getElementById('btn-next').style.display='none';
+}
+
+// === Drawing ===
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  // Grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.03)'; ctx.lineWidth = 0.5;
+  for (let x=0; x<=COLS; x++) { ctx.beginPath(); ctx.moveTo(x*GRID,0); ctx.lineTo(x*GRID,H); ctx.stroke(); }
+  for (let y=0; y<=ROWS; y++) { ctx.beginPath(); ctx.moveTo(0,y*GRID); ctx.lineTo(W,y*GRID); ctx.stroke(); }
+
+  // Obstacles
+  obstacles.forEach(o => {
+    const ox = o.x*GRID, oy = o.y*GRID;
+    ctx.fillStyle='#2a2a4a'; ctx.fillRect(ox+2,oy+2,GRID-4,GRID-4);
+    ctx.fillStyle='#3d3d6b'; ctx.fillRect(ox+3,oy+3,GRID-6,GRID-6);
+    ctx.strokeStyle='#555'; ctx.lineWidth=1.5;
+    ctx.beginPath();
+    ctx.moveTo(ox+5,oy+5); ctx.lineTo(ox+GRID-5,oy+GRID-5);
+    ctx.moveTo(ox+GRID-5,oy+5); ctx.lineTo(ox+5,oy+GRID-5);
+    ctx.stroke();
+  });
+
+  // Snake
+  const pad = 1;
+  snake.forEach((seg, i) => {
+    const sx = seg.x*GRID+pad, sy = seg.y*GRID+pad, sz = GRID-pad*2;
+    const color = snakePattern[i % patternLength];
+    ctx.fillStyle = color;
+    ctx.shadowColor = color+'99'; ctx.shadowBlur = i===0?10:4;
+    roundRect(sx, sy, sz, sz, 4);
+    ctx.shadowBlur = 0;
+    // Eyes
+    if (i===0) {
+      ctx.fillStyle='#fff';
+      let ex1,ey1,ex2,ey2;
+      const scx=seg.x*GRID+GRID/2, scy=seg.y*GRID+GRID/2;
+      if (direction===DIR.RIGHT||direction===DIR.LEFT) { ex1=scx; ey1=scy-5; ex2=scx; ey2=scy+5; }
+      else { ex1=scx-5; ey1=scy; ex2=scx+5; ey2=scy; }
+      ctx.beginPath(); ctx.arc(ex1,ey1,2.5,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(ex2,ey2,2.5,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='#111';
+      ctx.beginPath(); ctx.arc(ex1,ey1,1.2,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(ex2,ey2,1.2,0,Math.PI*2); ctx.fill();
+    }
+  });
+
+  // Food
+  const fx = food.x*GRID+GRID/2, fy = food.y*GRID+GRID/2;
+  const pulse = 1+Math.sin(Date.now()/300)*0.15;
+  const fr = (GRID/2-2)*pulse;
+  ctx.shadowColor = ballColor+'cc'; ctx.shadowBlur = 15;
+  const grad = ctx.createRadialGradient(fx-2,fy-3,fr*0.1,fx,fy,fr);
+  grad.addColorStop(0, lightenColor(ballColor,40));
+  grad.addColorStop(0.7, ballColor);
+  grad.addColorStop(1, darkenColor(ballColor,30));
+  ctx.fillStyle = grad;
+  ctx.beginPath(); ctx.arc(fx, fy, fr, 0, Math.PI*2); ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = 'rgba(255,255,255,0.3)';
+  ctx.beginPath(); ctx.arc(fx-fr*0.3,fy-fr*0.35,fr*0.3,0,Math.PI*2); ctx.fill();
+
+  // Waiting / Level complete / Game over
+  if (waiting) {
+    ctx.fillStyle='rgba(0,0,0,0.5)'; ctx.fillRect(0,0,W,H);
+    ctx.textAlign='center';
+    ctx.fillStyle='#fff'; ctx.font=`bold ${Math.min(30,W/12)}px "Segoe UI",Arial`;
+    ctx.fillText('第 '+currentLevel+' 关', W/2, H/2-12);
+    ctx.fillStyle='#ccc'; ctx.font=`${Math.min(18,W/22)}px "Segoe UI",Arial`;
+    ctx.fillText(isMobile?'点击画面开始':'按空格键开始', W/2, H/2+22);
+    ctx.textAlign='start';
+  }
+  if (levelDone) {
+    const minC = calcMinChanges();
+    ctx.fillStyle='rgba(0,0,0,0.6)'; ctx.fillRect(0,0,W,H);
+    ctx.textAlign='center';
+    ctx.fillStyle='#f5c518'; ctx.font=`bold ${Math.min(34,W/10)}px "Segoe UI",Arial`;
+    ctx.fillText(`第 ${currentLevel} 关通过!`, W/2, H/2-28);
+    ctx.fillStyle='#ccc'; ctx.font=`${Math.min(16,W/20)}px "Segoe UI",Arial`;
+    ctx.fillText(`操作: ${directionChanges} 次  |  最少: ${minC} 次`, W/2, H/2+10);
+    ctx.textAlign='start';
+  }
+  if (gameOver) {
+    const minC = calcMinChanges();
+    ctx.fillStyle='rgba(0,0,0,0.65)'; ctx.fillRect(0,0,W,H);
+    ctx.textAlign='center';
+    const fs=Math.min(40,W/10), fss=Math.min(17,W/20);
+    ctx.fillStyle='#e94560'; ctx.font=`bold ${fs}px "Segoe UI",Arial`;
+    ctx.fillText('游戏结束', W/2, H/2-40);
+    ctx.fillStyle='#f5c518'; ctx.font=`${fss}px "Segoe UI",Arial`;
+    ctx.fillText(`操作次数: ${directionChanges}`, W/2, H/2-4);
+    ctx.fillStyle='#4fc3f7'; ctx.font=`${fss}px "Segoe UI",Arial`;
+    ctx.fillText(`理论最少操作: ${minC}`, W/2, H/2+22);
+    ctx.textAlign='start';
+  }
+}
+
+function lightenColor(hex,a){ const c=hexToRgb(hex); return `rgb(${Math.min(255,c.r+a)},${Math.min(255,c.g+a)},${Math.min(255,c.b+a)})`; }
+function darkenColor(hex,a){ const c=hexToRgb(hex); return `rgb(${Math.max(0,c.r-a)},${Math.max(0,c.g-a)},${Math.max(0,c.b-a)})`; }
+function hexToRgb(h){ const x=h.replace('#',''); return {r:parseInt(x.substring(0,2),16),g:parseInt(x.substring(2,4),16),b:parseInt(x.substring(4,6),16)}; }
+function roundRect(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r); ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h); ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r); ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y); ctx.closePath(); ctx.fill(); }
+
+// --- Minimum changes ---
+function calcMinChanges() {
+  const dirs=DIRS_ARR, occSet=new Set(obstacles.map(o=>`${o.x},${o.y}`));
+  const cx=Math.floor(COLS/2),cy=Math.floor(ROWS/2);
+  let sim=[{x:cx,y:cy},{x:cx-1,y:cy},{x:cx-2,y:cy}], sd=1, tm=0;
+  const eaten=foodHistory.slice(0,-1);
+  for(const fp of eaten){
+    const so=new Set(sim.map(s=>`${s.x},${s.y}`)), head=sim[0], dist={};
+    const dq=[{x:head.x,y:head.y,d:sd,cost:0}]; dist[`${head.x},${head.y},${sd}`]=0;
+    let qi=0,found=Infinity;
+    while(qi<dq.length){ const cur=dq[qi++]; const key=`${cur.x},${cur.y},${cur.d}`;
+      if(dist[key]<cur.cost) continue;
+      if(cur.x===fp.x&&cur.y===fp.y){ found=cur.cost; sd=cur.d; break; }
+      for(let nd=0;nd<4;nd++){ const nx=cur.x+dirs[nd].x,ny=cur.y+dirs[nd].y;
+        if(nx<0||nx>=COLS||ny<0||ny>=ROWS) continue;
+        const tgt=nx===fp.x&&ny===fp.y;
+        if(!tgt){ if(so.has(`${nx},${ny}`)) continue; if(occSet.has(`${nx},${ny}`)) continue; }
+        const nc=cur.cost+(nd===cur.d?0:1), nk=`${nx},${ny},${nd}`;
+        if(dist[nk]!==undefined&&nc>=dist[nk]) continue;
+        dist[nk]=nc; const node={x:nx,y:ny,d:nd,cost:nc};
+        if(nd===cur.d) dq.splice(qi,0,node); else dq.push(node);
+      }
+    }
+    tm+=found; sim.unshift({x:fp.x,y:fp.y});
+  }
+  return tm;
+}
+
+// === Controls ===
+['btn-up','btn-down','btn-left','btn-right'].forEach(id=>{ const d={'btn-up':DIR.UP,'btn-down':DIR.DOWN,'btn-left':DIR.LEFT,'btn-right':DIR.RIGHT}[id]; document.getElementById(id).addEventListener('pointerdown',e=>{e.preventDefault();changeDirection(d);}); });
+let tSX=0,tSY=0,tMoved=false;
+canvas.addEventListener('touchstart',e=>{ if(waiting){e.preventDefault();startGame();return;} if(gameOver||levelDone)return; e.preventDefault(); tSX=e.touches[0].clientX;tSY=e.touches[0].clientY;tMoved=false; },{passive:false});
+canvas.addEventListener('touchmove',e=>{e.preventDefault();tMoved=true;},{passive:false});
+canvas.addEventListener('touchend',e=>{ e.preventDefault(); if(gameOver||levelDone||waiting)return; if(!tMoved)return; const dx=e.changedTouches[0].clientX-tSX,dy=e.changedTouches[0].clientY-tSY; if(Math.max(Math.abs(dx),Math.abs(dy))<20)return; changeDirection(Math.abs(dx)>Math.abs(dy)?(dx>0?DIR.RIGHT:DIR.LEFT):(dy>0?DIR.DOWN:DIR.UP)); });
+canvas.addEventListener('click',()=>{if(waiting)startGame();});
+document.addEventListener('keydown',e=>{ if(e.code==='Space'){e.preventDefault();if(waiting){startGame();return;}return;} const m={ArrowUp:DIR.UP,KeyW:DIR.UP,ArrowDown:DIR.DOWN,KeyS:DIR.DOWN,ArrowLeft:DIR.LEFT,KeyA:DIR.LEFT,ArrowRight:DIR.RIGHT,KeyD:DIR.RIGHT}; const nd=m[e.code]; if(nd){e.preventDefault();changeDirection(nd);} });
+
+// === Buttons ===
+document.getElementById('btn-retry').addEventListener('click',()=>startLevel(currentLevel));
+document.getElementById('btn-next').addEventListener('click',()=>startLevel(currentLevel+1));
+document.getElementById('btn-menu').addEventListener('click',showMenu);
+document.getElementById('btn-back').addEventListener('click',showMenu);
+document.getElementById('btn-skin-open').addEventListener('click',openSkinPanel);
+document.getElementById('btn-export').addEventListener('click',exportSave);
+document.getElementById('btn-import').addEventListener('click',importSave);
+document.getElementById('btn-skin-back').addEventListener('click',closeSkinPanel);
+document.getElementById('btn-skin-save').addEventListener('click',()=>{saveSkin();closeSkinPanel();});
+document.getElementById('btn-skin-reset').addEventListener('click',resetSkin);
+['tab-snake','tab-ball','tab-bg'].forEach(id=>document.getElementById(id).addEventListener('click',()=>switchSkinTab(id.replace('tab-',''))));
+document.getElementById('btn-clear-snake').addEventListener('click',()=>{ snakePattern.fill('#16213e'); snakeStripCells.forEach(c=>c.style.background='#16213e'); updateSnakePreview(); });
+document.getElementById('snake-custom-color').addEventListener('input',e=>{ selectedSnakeColor=e.target.value; snakeSwatches.forEach(s=>s.classList.remove('selected')); });
+document.getElementById('snake-length').addEventListener('input',e=>{ patternLength=parseInt(e.target.value); document.getElementById('snake-length-val').textContent=patternLength; buildSnakeStrip(); updateSnakePreview(); });
+
+document.getElementById('ball-custom-color').addEventListener('input', e => { ballColor=e.target.value; updateBallPreview(); });
+document.getElementById('bg-custom-color').addEventListener('input', e => { bgColor=e.target.value; updateBgPreview(); });
+
+// === Init ===
+loadSkin(); initSkinPanel(); showMenu();
+  </script>
+</body>
+</html>
